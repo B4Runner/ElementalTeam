@@ -1,0 +1,166 @@
+package my.group.here.elementalteam;
+
+import java.util.Random;
+
+import org.bukkit.GameMode;
+import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
+import org.bukkit.inventory.ItemStack;
+
+public class EventListener implements Listener {
+	private Main plugin;
+
+	public EventListener(Main plugin) {
+		this.plugin = plugin;
+		plugin.getServer().getPluginManager().registerEvents(this, plugin);
+	}
+
+	@EventHandler
+	public void onDamageByEntityEvent(EntityDamageByEntityEvent evt) {
+		if (evt.getDamager() instanceof Player) {
+			Player damager = (Player) evt.getDamager();
+			if (!(evt.getEntity() instanceof Player)) {
+				if (plugin.playerData.getString(
+						"players." + damager.getDisplayName() + ".Team")
+						.equalsIgnoreCase("FireTeam"))
+					evt.getEntity().setFireTicks(120);
+			} else {
+				Player damaged = (Player) evt.getEntity();
+				if (plugin.playerData.getString(
+						"players." + damager.getDisplayName() + ".Team")
+						.equalsIgnoreCase(
+								plugin.playerData.getString("players."
+										+ damaged.getDisplayName() + ".Team")))
+					evt.setCancelled(true);
+				else if (plugin.playerData.getString(
+						"players." + damager.getDisplayName() + ".Team")
+						.equalsIgnoreCase("FireTeam"))
+					damaged.setFireTicks(120);
+			}
+		}
+	}
+
+	@EventHandler
+	public void onDamageEvent(EntityDamageEvent evt) {
+		if (evt.getEntity() instanceof Player) {
+			Player player = (Player) evt.getEntity();
+			if (plugin.playerData.getString(
+					"players." + player.getDisplayName() + ".Team")
+					.equalsIgnoreCase("WindTeam")) {
+				if (evt.getCause().toString().equalsIgnoreCase("FALL"))
+					evt.setCancelled(true);
+			} else if (plugin.playerData.getString(
+					"players." + player.getDisplayName() + ".Team")
+					.equalsIgnoreCase("WaterTeam"))
+				if (evt.getCause().toString().equalsIgnoreCase("DROWNING"))
+					evt.setCancelled(true);
+
+		}
+	}
+
+	@EventHandler
+	public void onBreakBlock(BlockBreakEvent evt) {
+		if (plugin.playerData.getString(
+				"players." + evt.getPlayer().getDisplayName() + ".Team")
+				.equalsIgnoreCase("EarthTeam")) {
+			Block block = evt.getBlock();
+
+			Random rand = new Random();
+
+			if (block.getType().equals(Material.COAL_ORE))
+				block.getWorld().dropItemNaturally(block.getLocation(),
+						new ItemStack(Material.COAL, rand.nextInt(4) + 1));
+			else if (block.getType().equals(Material.GOLD_ORE))
+				block.getWorld()
+						.dropItemNaturally(
+								block.getLocation(),
+								new ItemStack(Material.GOLD_INGOT, rand
+										.nextInt(3) + 1));
+			else if (block.getType().equals(Material.IRON_ORE))
+				block.getWorld()
+						.dropItemNaturally(
+								block.getLocation(),
+								new ItemStack(Material.IRON_INGOT, rand
+										.nextInt(3) + 1));
+			else if (block.getType().equals(Material.DIAMOND_ORE))
+				block.getWorld().dropItemNaturally(block.getLocation(),
+						new ItemStack(Material.DIAMOND, rand.nextInt(2) + 1));
+			else if (block.getType().equals(Material.EMERALD_ORE))
+				block.getWorld().dropItemNaturally(block.getLocation(),
+						new ItemStack(Material.EMERALD, rand.nextInt(2) + 1));
+			else if (block.getType().equals(Material.QUARTZ_ORE))
+				block.getWorld().dropItemNaturally(block.getLocation(),
+						new ItemStack(Material.QUARTZ, rand.nextInt(5) + 3));
+
+			evt.setCancelled(true);
+			evt.getBlock().breakNaturally(new ItemStack(Material.AIR));
+		}
+	}
+
+	@EventHandler
+	public void onMove(PlayerMoveEvent event) {
+		Player player = event.getPlayer();
+
+		Material underBlock = event.getPlayer().getLocation().getBlock()
+				.getRelative(BlockFace.DOWN).getType();
+
+		if (player.getGameMode() != GameMode.CREATIVE
+				&& underBlock != Material.AIR) {
+			boolean wind = plugin.playerData.getString(
+					"players." + player.getDisplayName() + ".Team")
+					.equalsIgnoreCase("WindTeam")
+					&& underBlock != Material.WATER
+					&& underBlock != Material.STATIONARY_WATER
+					&& underBlock != Material.WATER_BUCKET;
+			boolean water = plugin.playerData.getString(
+					"players." + player.getDisplayName() + ".Team")
+					.equalsIgnoreCase("WaterTeam")
+					&& (underBlock == Material.WATER
+							|| underBlock == Material.STATIONARY_WATER || underBlock == Material.WATER_BUCKET);
+
+			if (wind || water)
+				event.getPlayer().setAllowFlight(true);
+		}
+	}
+
+	@EventHandler
+	public void onFly(PlayerToggleFlightEvent event) {
+		Player player = event.getPlayer();
+
+		if (player.getGameMode() != GameMode.CREATIVE) {
+			event.setCancelled(true);
+			player.setAllowFlight(false);
+			player.setFlying(false);
+
+			if (plugin.playerData.getString(
+					"players." + player.getDisplayName() + ".Team")
+					.equalsIgnoreCase("WaterTeam")) {
+				player.setVelocity(player.getLocation().getDirection()
+						.multiply(1).setY(0));
+				player.getLocation()
+						.getWorld()
+						.playSound(player.getLocation(), Sound.WATER, 1.0F,
+								-5.0F);
+			} else if (plugin.playerData.getString(
+					"players." + player.getDisplayName() + ".Team")
+					.equalsIgnoreCase("WindTeam")) {
+				player.setVelocity(player.getLocation().getDirection()
+						.multiply(0.5).setY(0.4));
+				player.getLocation()
+						.getWorld()
+						.playSound(player.getLocation(),
+								Sound.ENDERDRAGON_WINGS, 1.0F, -5.0F);
+			}
+		}
+	}
+}
